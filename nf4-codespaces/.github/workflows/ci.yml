@@ -1,0 +1,25 @@
+name: laboratorio-nf4
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: ruff check app labs scripts tests --select E9,F63,F7,F82
+      - run: python -m pytest -q
+      - run: bash scripts/preparar.sh
+      - run: docker compose up -d --build --wait
+      - run: set -a; source .env; set +a; python scripts/integracao.py
+      - run: docker save nf4-cerrado:dev -o nf4-${{ github.sha }}.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nf4-${{ github.sha }}
+          path: nf4-*.tar
+      - if: always()
+        run: docker compose down

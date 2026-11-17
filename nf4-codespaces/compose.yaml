@@ -1,0 +1,53 @@
+name: nf4-cerrado
+x-app: &app
+  build: .
+  image: nf4-cerrado:${VERSAO:-dev}
+  env_file: .env
+  environment: &db
+    DB_HOST: db
+    DB_NAME: loja_cerrado
+    DB_USER: api_lab
+    DB_PASSWORD: api_local
+  depends_on:
+    db:
+      condition: service_healthy
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root_local
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./dados:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysql -h 127.0.0.1 -uroot -e 'SELECT 1' loja_cerrado"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+  api:
+    <<: *app
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  faturamento:
+    <<: *app
+    environment:
+      <<: *db
+      DB_USER: billing_lab
+      DB_PASSWORD: billing_local
+      MODO_FATURAMENTO: ${MODO_FATURAMENTO:-normal}
+    command: ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "2", "app.faturamento:app"]
+  worker:
+    <<: *app
+    environment:
+      <<: *db
+      DB_USER: worker_lab
+      DB_PASSWORD: worker_local
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+volumes:
+  mysql_data:
