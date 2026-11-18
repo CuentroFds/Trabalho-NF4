@@ -1,5 +1,5 @@
 # Relatório da equipe
-Integrantes e contribuições:
+Integrantes e contribuições: Arthur, Victor, Jefferson
 Commit demonstrado:
 Versões e data de execução:
 
